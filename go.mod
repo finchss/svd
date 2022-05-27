@@ -1,4 +1,4 @@
-module svd
+module github.com/finchss/svd
 
 go 1.18
 
