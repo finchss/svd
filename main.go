@@ -2,11 +2,10 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/google/shlex"
+	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -14,7 +13,20 @@ import (
 
 var wg sync.WaitGroup
 
+func readConfig(file string) ([]string, error) {
+	log.Println("trying to load config from", file)
+	f, err := os.ReadFile(file)
+	if err == nil {
+		fd := string(f)
+		y := strings.Split(fd, "\n")
+		log.Println("Loaded", len(y), "lines from", file)
+		return y, nil
+	} else {
+		return nil, err
+	}
+}
 func loadConfig() []string {
+
 	configFileName := "svd.conf"
 	var location = make([]string, 0)
 
@@ -22,19 +34,14 @@ func loadConfig() []string {
 	if err == nil {
 		location = append(location, cwd)
 	}
-	location = append(location, ".", filepath.Dir(os.Args[0]), "/etc")
+	location = append(location, "/etc")
 
 	for _, l := range location {
 		if l == "/" {
 			l = ""
 		}
 		tloc := l + "/" + configFileName
-		fmt.Println("Trying to load config from " + tloc)
-		f, err := os.ReadFile(tloc)
-		if err == nil {
-			fd := string(f)
-			y := strings.Split(fd, "\n")
-			fmt.Println("Loaded ", len(y), " lines")
+		if y, err := readConfig(tloc); err == nil {
 			return y
 		}
 	}
@@ -51,7 +58,7 @@ func doStuff(l string) {
 	}
 
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 
@@ -60,11 +67,11 @@ func doStuff(l string) {
 	}
 
 	for true {
-		fmt.Println("Exec ", l)
+		log.Println("Exec ", l)
 		cmd := exec.Command(a[0], a[1:]...)
 		err := cmd.Run()
 		if err != nil {
-			fmt.Println(l, "-->", err.Error())
+			log.Println(l, "-->", err.Error())
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -74,6 +81,7 @@ type pcT struct {
 	flagInstall  bool
 	installUser  string
 	installGroup string
+	configFile   string
 }
 
 var pc pcT
@@ -97,7 +105,7 @@ func installService() {
 		return
 	}
 
-	fmt.Println("Copy ", os.Args[0], "to /bin/svd")
+	log.Println("Copy ", os.Args[0], "to /bin/svd")
 	d, err := os.ReadFile(os.Args[0])
 	if err != nil {
 		return
@@ -107,21 +115,21 @@ func installService() {
 		return
 	}
 
-	fmt.Println("Exec \"/usr/bin/systemctl daemon-reload\" ")
+	log.Println("Exec \"/usr/bin/systemctl daemon-reload\" ")
 	cmd = exec.Command("/usr/bin/systemctl", "daemon-reload")
 	err = cmd.Run()
 	if err != nil {
 		return
 	}
 
-	fmt.Println("Exec \"/usr/bin/systemctl enable svd\" ")
+	log.Println("Exec \"/usr/bin/systemctl enable svd\" ")
 	cmd = exec.Command("/usr/bin/systemctl", "enable", "svd")
 	err = cmd.Run()
 	if err != nil {
 		return
 	}
 
-	fmt.Println("Exec \"/usr/bin/systemctl start svd\" ")
+	log.Println("Exec \"/usr/bin/systemctl start svd\" ")
 	cmd = exec.Command("/usr/bin/systemctl", "start", "svd")
 	err = cmd.Run()
 	if err != nil {
@@ -131,9 +139,13 @@ func installService() {
 }
 func main() {
 
+	log.SetFlags(log.LstdFlags)
+	var lines []string
+	var err error
 	flag.BoolVar(&pc.flagInstall, "install", false, "Install systemd service")
 	flag.StringVar(&pc.installUser, "iuser", "steve", "Install systemd service - run as user")
 	flag.StringVar(&pc.installGroup, "igroup", "steve", "Install systemd service - run as group")
+	flag.StringVar(&pc.configFile, "f", "", "config file")
 	flag.Parse()
 
 	if pc.flagInstall {
@@ -141,7 +153,14 @@ func main() {
 		os.Exit(0)
 	}
 
-	lines := loadConfig()
+	if pc.configFile == "" {
+		lines = loadConfig()
+	} else {
+		lines, err = readConfig(pc.configFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	for _, l := range lines {
 		wg.Add(1)
 		time.Sleep(1 * time.Second)
