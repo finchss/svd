@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"github.com/google/shlex"
+	"github.com/k0kubun/pp"
 	"log"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -78,10 +80,11 @@ func doStuff(l string) {
 }
 
 type pcT struct {
-	flagInstall  bool
-	installUser  string
-	installGroup string
-	configFile   string
+	flagInstall   bool
+	installUser   string
+	installGroup  string
+	configFile    string
+	showDebugInfo bool
 }
 
 var pc pcT
@@ -137,6 +140,14 @@ func installService() {
 	}
 
 }
+
+func showDebugInfo() {
+	bi, ok := debug.ReadBuildInfo()
+	if ok {
+		_, _ = pp.Println(bi)
+	}
+	os.Exit(0)
+}
 func main() {
 
 	log.SetFlags(log.LstdFlags)
@@ -146,7 +157,12 @@ func main() {
 	flag.StringVar(&pc.installUser, "iuser", "steve", "Install systemd service - run as user")
 	flag.StringVar(&pc.installGroup, "igroup", "steve", "Install systemd service - run as group")
 	flag.StringVar(&pc.configFile, "f", "", "config file")
+	flag.BoolVar(&pc.showDebugInfo, "info", false, "show debug info")
 	flag.Parse()
+
+	if pc.showDebugInfo {
+		showDebugInfo()
+	}
 
 	if pc.flagInstall {
 		installService()
