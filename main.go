@@ -2,8 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/google/shlex"
-	"github.com/k0kubun/pp"
 	"log"
 	"os"
 	"os/exec"
@@ -11,6 +9,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/shlex"
+	"github.com/k0kubun/pp"
 )
 
 var wg sync.WaitGroup
